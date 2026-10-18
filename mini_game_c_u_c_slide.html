@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Game Câu Cá - Slide Tương Tác</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #0f172a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Khung Slide chuẩn tỉ lệ 16:9 */
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 56.25vw; /* 16:9 Aspect Ratio */
+            max-width: 177.78vh; /* 16/9 * 100vh */
+            max-height: 100vh;
+            background: linear-gradient(to bottom, #38bdf8 0%, #0284c7 35%, #0369a1 70%, #0c4a6e 100%);
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Giao diện Header / HUD */
+        .hud {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .hud-card {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            color: #fff;
+            font-weight: bold;
+            font-size: 1.2rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn {
+            pointer-events: auto;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #b45309, 0 10px 15px rgba(0,0,0,0.3);
+            transition: all 0.1s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 0 #b45309, 0 12px 20px rgba(0,0,0,0.3);
+            filter: brightness(1.05);
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #b45309, 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .btn-green {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 6px 0 #047857, 0 10px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn-green:hover {
+            box-shadow: 0 8px 0 #047857, 0 12px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn-green:active {
+            box-shadow: 0 2px 0 #047857, 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 15px;
+        }
+
+        /* Modal Hộp thoại */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background: #ffffff;
+            width: 80%;
+            max-width: 650px;
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 4px solid #38bdf8;
+            transform: scale(0.8);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center;
+        }
+
+        .modal-overlay.active .modal-card {
+            transform: scale(1);
+        }
+
+        .modal-title {
+            color: #0284c7;
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            font-weight: 800;
+        }
+
+        .question-text {
+            font-size: 1.3rem;
+            color: #1e293b;
+            margin-bottom: 25px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .option-btn {
+            background: #f1f5f9;
+            border: 2px solid #cbd5e1;
+            padding: 14px 18px;
+            border-radius: 14px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .option-btn:hover {
+            background: #e2e8f0;
+            border-color: #0284c7;
+            color: #0284c7;
+        }
+
+        .option-btn.correct {
+            background: #dcfce7 !important;
+            border-color: #22c55e !important;
+            color: #15803d !important;
+        }
+
+        .option-btn.wrong {
+            background: #fee2e2 !important;
+            border-color: #ef4444 !important;
+            color: #b91c1c !important;
+        }
+
+        /* Modal Quản lý / Chỉnh sửa câu hỏi */
+        .editor-modal {
+            width: 90%;
+            max-width: 800px;
+            max-height: 85vh;
+            overflow-y: auto;
+            text-align: left;
+        }
+
+        .editor-list {
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .editor-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+
+        /* Hiệu ứng Pháo hoa / Chúc mừng */
+        .feedback-text {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-top: 15px;
+            min-height: 36px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Canvas Đồ họa chính -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Thanh chỉ số HUD -->
+        <div class="hud">
+            <div class="hud-card">
+                <span>🎣</span> Điểm: <span id="score">0</span>
+            </div>
+            <div class="hud-card">
+                <span>🐟</span> Đã câu: <span id="fishes-caught">0</span> / <span id="total-fishes">0</span>
+            </div>
+            <button class="btn btn-green" onclick="openEditor()">⚙️ Tùy chỉnh Câu hỏi</button>
+        </div>
+
+        <!-- Nút Thao tác -->
+        <div class="controls">
+            <button id="fish-btn" class="btn" onclick="castLine()">🚀 Thả Cần Câu!</button>
+        </div>
+
+        <!-- Modal Bật Câu Hỏi -->
+        <div id="question-modal" class="modal-overlay">
+            <div class="modal-card">
+                <div class="modal-title">🎉 CÂU ĐƯỢC CÁ RỒI!</div>
+                <div id="question-text" class="question-text">Đang tải câu hỏi...</div>
+                <div id="options-container" class="options-grid"></div>
+                <div id="feedback" class="feedback-text"></div>
+            </div>
+        </div>
+
+        <!-- Modal Chỉnh Sửa Câu Hỏi -->
+        <div id="editor-modal" class="modal-overlay">
+            <div class="modal-card editor-modal">
+                <div class="modal-title">⚙️ Quản lý Danh sách Câu hỏi</div>
+                <p style="color: #64748b; font-size: 0.95rem;">Thêm hoặc sửa câu hỏi cho bài thuyết trình của bạn.</p>
+                <div id="editor-list" class="editor-list"></div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn" onclick="addQuestionItem()" style="background: #3b82f6;">+ Thêm câu hỏi</button>
+                    <button class="btn btn-green" onclick="saveQuestions()">💾 Lưu & Bắt đầu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mạng lưới câu hỏi mặc định
+        let defaultQuestions = [
+            {
+                q: "Thủ đô của Việt Nam là gì?",
+                options: ["TP. Hồ Chí Minh", "Hà Nội", "Đà Nẵng", "Cần Thơ"],
+                answer: 1
+            },
+            {
+                q: "Hành tinh nào gần Mặt Trời nhất?",
+                options: ["Trái Đất", "Sao Hỏa", "Sao Thủy", "Sao Kim"],
+                answer: 2
+            },
+            {
+                q: "Một năm nhuận có bao nhiêu ngày?",
+                options: ["365 ngày", "366 ngày", "364 ngày", "367 ngày"],
+                answer: 1
+            },
+            {
+                q: "Nước sôi ở bao nhiêu độ C (ở điều kiện tiêu chuẩn)?",
+                options: ["90°C", "100°C", "110°C", "120°C"],
+                answer: 1
+            }
+        ];
+
+        let questions = JSON.parse(localStorage.getItem('fishing_questions')) || defaultQuestions;
+        
+        // Khởi tạo Canvas & Game Engine
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('game-container');
+
+        let width, height;
+        let score = 0;
+        let fishesCaught = 0;
+        let currentFishTarget = null;
+
+        // Trạng thái cần câu
+        let hook = {
+            x: 0,
+            y: 0,
+            targetY: 0,
+            state: 'idle', // idle, lowering, catching, returning
+            speed: 8,
+            caughtFish: null
+        };
+
+        // Danh sách cá đang bơi
+        let fishes = [];
+        const fishColors = ['#f97316', '#ec4899', '#eab308', '#a855f7', '#06b6d4'];
+
+        function resizeCanvas() {
+            width = container.clientWidth;
+            height = container.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+            hook.x = width / 2 + 50;
+            hook.y = height * 0.22;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Khởi tạo đối tượng cá
+        class Fish {
+            constructor(questionIndex) {
+                this.questionIndex = questionIndex;
+                this.reset();
+            }
+
+            reset() {
+                this.radius = 20 + Math.random() * 10;
+                this.y = height * 0.35 + Math.random() * (height * 0.5);
+                this.direction = Math.random() < 0.5 ? 1 : -1;
+                this.x = this.direction === 1 ? -50 : width + 50;
+                this.speed = 1.5 + Math.random() * 2;
+                this.color = fishColors[Math.floor(Math.random() * fishColors.length)];
+                this.tailAngle = 0;
+                this.isCaught = false;
+            }
+
+            update() {
+                if (this.isCaught) return;
+
+                this.x += this.speed * this.direction;
+                this.tailAngle += 0.15;
+
+                // Quay lại khi đi hết màn hình
+                if (this.direction === 1 && this.x > width + 60) {
+                    this.x = -60;
+                } else if (this.direction === -1 && this.x < -60) {
+                    this.x = width + 60;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                if (this.direction === -1) ctx.scale(-1, 1);
+
+                // Thân cá
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.radius * 1.5, this.radius, 0, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+
+                // Đuôi cá
+                ctx.beginPath();
+                let tailOffset = Math.sin(this.tailAngle) * 8;
+                ctx.moveTo(-this.radius * 1.2, 0);
+                ctx.lineTo(-this.radius * 2.2, -this.radius * 0.8 + tailOffset);
+                ctx.lineTo(-this.radius * 2.2, this.radius * 0.8 + tailOffset);
+                ctx.closePath();
+                ctx.fillStyle = this.color;
+                ctx.fill();
+
+                // Mắt cá
+                ctx.beginPath();
+                ctx.arc(this.radius * 0.7, -this.radius * 0.3, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(this.radius * 0.8, -this.radius * 0.3, 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#000000';
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        function initGame() {
+            resizeCanvas();
+            fishes = [];
+            questions.forEach((q, idx) => {
+                fishes.push(new Fish(idx));
+            });
+            document.getElementById('total-fishes').innerText = questions.length;
+            document.getElementById('score').innerText = score;
+            document.getElementById('fishes-caught').innerText = fishesCaught;
+        }
+
+        // Vẽ bối cảnh (Thuyền, người câu, nước)
+        function drawScene() {
+            // Mặt nước
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.fillRect(0, height * 0.28, width, 4);
+
+            // Thuyền
+            let boatX = width / 2 - 80;
+            let boatY = height * 0.22;
+
+            ctx.fillStyle = '#854d0e';
+            ctx.beginPath();
+            ctx.moveTo(boatX, boatY);
+            ctx.lineTo(boatX + 160, boatY);
+            ctx.lineTo(boatX + 130, boatY + 40);
+            ctx.lineTo(boatX + 30, boatY + 40);
+            ctx.closePath();
+            ctx.fill();
+
+            // Cần câu
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(boatX + 100, boatY);
+            ctx.lineTo(hook.x, height * 0.12);
+            ctx.stroke();
+
+            // Dây câu
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(hook.x, height * 0.12);
+            ctx.lineTo(hook.x, hook.y);
+            ctx.stroke();
+
+            // Lưỡi câu
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(hook.x - 5, hook.y, 6, 0, Math.PI);
+            ctx.stroke();
+        }
+
+        // Vòng lặp Animation Game
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+
+            drawScene();
+
+            // Cập nhật & vẽ cá
+            fishes.forEach(fish => {
+                fish.update();
+                fish.draw();
+            });
+
+            // Logic di chuyển lưỡi câu
+            if (hook.state === 'lowering') {
+                hook.y += hook.speed;
+
+                // Kiểm tra va chạm cá
+                fishes.forEach(fish => {
+                    if (!fish.isCaught) {
+                        let dist = Math.hypot(hook.x - fish.x, hook.y - fish.y);
+                        if (dist < fish.radius + 10) {
+                            hook.state = 'catching';
+                            fish.isCaught = true;
+                            hook.caughtFish = fish;
+                            currentFishTarget = fish;
+                        }
+                    }
+                });
+
+                // Đáy bể thì kéo lên
+                if (hook.y > height - 40) {
+                    hook.state = 'returning';
+                }
+            } else if (hook.state === 'catching' || hook.state === 'returning') {
+                hook.y -= hook.speed;
+
+                if (hook.caughtFish) {
+                    hook.caughtFish.x = hook.x;
+                    hook.caughtFish.y = hook.y + 15;
+                }
+
+                // Khi cần câu kéo về tới thuyền
+                if (hook.y <= height * 0.22) {
+                    hook.y = height * 0.22;
+                    if (hook.caughtFish) {
+                        showQuestionModal(hook.caughtFish.questionIndex);
+                        hook.state = 'idle';
+                    } else {
+                        hook.state = 'idle';
+                        document.getElementById('fish-btn').disabled = false;
+                    }
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Thả cần câu
+        function castLine() {
+            if (hook.state !== 'idle') return;
+            document.getElementById('fish-btn').disabled = true;
+            hook.state = 'lowering';
+        }
+
+        // Bật Modal Câu hỏi
+        function showQuestionModal(qIndex) {
+            let qData = questions[qIndex];
+            document.getElementById('question-text').innerText = qData.q;
+            
+            let optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+            document.getElementById('feedback').innerText = '';
+
+            qData.options.forEach((opt, idx) => {
+                let btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = `${String.fromCharCode(65 + idx)}. ${opt}`;
+                btn.onclick = () => checkAnswer(idx, qData.answer, btn, qIndex);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('question-modal').classList.add('active');
+        }
+
+        // Kiểm tra Đáp án
+        function checkAnswer(selected, correct, btnElement, qIndex) {
+            let allBtns = document.querySelectorAll('.option-btn');
+            allBtns.forEach(b => b.style.pointerEvents = 'none');
+
+            let feedback = document.getElementById('feedback');
+
+            if (selected === correct) {
+                btnElement.classList.add('correct');
+                feedback.innerText = "✨ CHÍNH XÁC! +10 ĐIỂM";
+                feedback.style.color = "#16a34a";
+                score += 10;
+                fishesCaught++;
+                document.getElementById('score').innerText = score;
+                document.getElementById('fishes-caught').innerText = fishesCaught;
+
+                // Loại cá đã câu ra khỏi màn hình
+                fishes = fishes.filter(f => f !== hook.caughtFish);
+            } else {
+                btnElement.classList.add('wrong');
+                allBtns[correct].classList.add('correct');
+                feedback.innerText = "💥 TIẾC QUÁ! CÁ ĐÃ TRỐN MẤT!";
+                feedback.style.color = "#dc2626";
+
+                // Thả cá lại rủ bể
+                if (hook.caughtFish) {
+                    hook.caughtFish.isCaught = false;
+                    hook.caughtFish.reset();
+                }
+            }
+
+            hook.caughtFish = null;
+
+            setTimeout(() => {
+                document.getElementById('question-modal').classList.remove('active');
+                document.getElementById('fish-btn').disabled = false;
+            }, 2000);
+        }
+
+        // === Quản lý editor câu hỏi ===
+        function openEditor() {
+            let list = document.getElementById('editor-list');
+            list.innerHTML = '';
+
+            questions.forEach((q, idx) => {
+                let item = document.createElement('div');
+                item.className = 'editor-item';
+                item.innerHTML = `
+                    <div class="input-group">
+                        <label>Câu hỏi ${idx + 1}:</label>
+                        <input type="text" value="${q.q}" id="q-text-${idx}">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        ${q.options.map((opt, oIdx) => `
+                            <div class="input-group">
+                                <label>Đáp án ${String.fromCharCode(65 + oIdx)}:</label>
+                                <input type="text" value="${opt}" id="q-opt-${idx}-${oIdx}">
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="input-group">
+                        <label>Chỉ số đáp án đúng (0 = A, 1 = B, 2 = C, 3 = D):</label>
+                        <input type="number" min="0" max="3" value="${q.answer}" id="q-ans-${idx}">
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+
+            document.getElementById('editor-modal').classList.add('active');
+        }
+
+        function addQuestionItem() {
+            questions.push({
+                q: "Câu hỏi mới?",
+                options: ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
+                answer: 0
+            });
+            openEditor();
+        }
+
+        function saveQuestions() {
+            questions.forEach((q, idx) => {
+                let qInput = document.getElementById(`q-text-${idx}`);
+                if (qInput) {
+                    q.q = qInput.value;
+                    q.options = [
+                        document.getElementById(`q-opt-${idx}-0`).value,
+                        document.getElementById(`q-opt-${idx}-1`).value,
+                        document.getElementById(`q-opt-${idx}-2`).value,
+                        document.getElementById(`q-opt-${idx}-3`).value
+                    ];
+                    q.answer = parseInt(document.getElementById(`q-ans-${idx}`).value) || 0;
+                }
+            });
+
+            localStorage.setItem('fishing_questions', JSON.stringify(questions));
+            document.getElementById('editor-modal').classList.remove('active');
+            initGame();
+        }
+
+        // Chạy game khi tải trang xong
+        window.onload = () => {
+            initGame();
+            animate();
+        };
+    </script>
+</body>
+</html>
